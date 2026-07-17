@@ -1,0 +1,19 @@
+# Configuración de despliegue en Netlify.
+#
+# Netlify detecta Next.js automáticamente y activa su runtime oficial
+# (@netlify/plugin-nextjs): la ruta de servidor app/api/rates/route.ts se
+# despliega como una Netlify Function, así que la descarga del fichero del
+# Banco de España sigue ocurriendo en el servidor (sin problemas de CORS),
+# igual que en Vercel. No hay que tocar el código.
+#
+# IMPORTANTE: si conectas el repositorio COMPLETO (InterestsApp-main) en lugar
+# de solo esta carpeta, indica en Netlify (Site settings > Build & deploy >
+# Base directory) el valor:  calculadora-intereses
+# así Netlify usará este netlify.toml y construirá la app correcta.
+
+[build]
+  command = "next build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
