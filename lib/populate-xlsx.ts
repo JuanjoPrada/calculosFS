@@ -187,8 +187,12 @@ function forceFullCalc(wbXml: string): string {
   return wbXml.replace(/<\/workbook>/, '<calcPr fullCalcOnLoad="1"/></workbook>')
 }
 
+// Version de la plantilla: subir este numero cada vez que se recongele la plantilla,
+// para forzar que el navegador/CDN descarguen la nueva y no una cacheada corrupta.
+const TEMPLATE_VERSION = "20260720b"
+
 export async function populateAndDownload(data: InformeInput): Promise<void> {
-  const res = await fetch("/plantilla/Calculo_Deuda_y_Subasta.xlsx")
+  const res = await fetch(`/plantilla/Calculo_Deuda_y_Subasta.xlsx?v=${TEMPLATE_VERSION}`, { cache: "no-store" })
   if (!res.ok) throw new Error("No se pudo cargar la plantilla del servidor.")
   const zip = await JSZip.loadAsync(await res.arrayBuffer())
 

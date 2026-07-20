@@ -1,15 +1,6 @@
-# Configuración de despliegue en Netlify.
-#
-# Netlify detecta Next.js automáticamente y activa su runtime oficial
-# (@netlify/plugin-nextjs): la ruta de servidor app/api/rates/route.ts se
-# despliega como una Netlify Function, así que la descarga del fichero del
-# Banco de España sigue ocurriendo en el servidor (sin problemas de CORS),
-# igual que en Vercel. No hay que tocar el código.
-#
-# IMPORTANTE: si conectas el repositorio COMPLETO (InterestsApp-main) en lugar
-# de solo esta carpeta, indica en Netlify (Site settings > Build & deploy >
-# Base directory) el valor:  calculadora-intereses
-# así Netlify usará este netlify.toml y construirá la app correcta.
+# Despliegue de calculosFS en Netlify.
+# Netlify detecta Next.js y activa su runtime oficial (@netlify/plugin-nextjs).
+# Si conectas el repositorio calculosFS directamente, no hay que configurar nada.
 
 [build]
   command = "next build"
@@ -17,3 +8,10 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+# La plantilla .xlsx NO debe cachearse: si cambia, hay que servir siempre la ultima
+# (evita que se descargue una version antigua/corrupta desde la cache del navegador o CDN).
+[[headers]]
+  for = "/plantilla/*"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
