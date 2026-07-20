@@ -180,16 +180,22 @@ async function findSheetPath(zip: JSZip, sheetName: string): Promise<string> {
   return target
 }
 
-/** Fuerza el recalculo completo al abrir (idempotente, edicion de cadena). */
-function forceFullCalc(wbXml: string): string {
-  if (/fullCalcOnLoad=/.test(wbXml)) return wbXml
-  if (/<calcPr\b/.test(wbXml)) return wbXml.replace(/<calcPr\b/, '<calcPr fullCalcOnLoad="1" ')
-  return wbXml.replace(/<\/workbook>/, '<calcPr fullCalcOnLoad="1"/></workbook>')
+/** Asegura calculo AUTOMATICO + recalculo completo al abrir (edicion de cadena).
+ *  calcMode="auto" es clave: obliga a Excel a recalcular solo (sin que el usuario pulse F9),
+ *  aunque su sesion de Excel estuviera en modo manual. */
+function forceAutoCalc(wbXml: string): string {
+  const m = wbXml.match(/<calcPr\b([^>]*?)\/?>/)
+  if (m) {
+    const calcId = m[1].match(/calcId="\d+"/)
+    const cp = `<calcPr calcMode="auto" fullCalcOnLoad="1"${calcId ? " " + calcId[0] : ""}/>`
+    return wbXml.slice(0, m.index) + cp + wbXml.slice((m.index ?? 0) + m[0].length)
+  }
+  return wbXml.replace(/<\/workbook>/, '<calcPr calcMode="auto" fullCalcOnLoad="1"/></workbook>')
 }
 
 // Version de la plantilla: subir este numero cada vez que se recongele la plantilla,
 // para forzar que el navegador/CDN descarguen la nueva y no una cacheada corrupta.
-const TEMPLATE_VERSION = "20260720b"
+const TEMPLATE_VERSION = "20260720c"
 
 export async function populateAndDownload(data: InformeInput): Promise<void> {
   const res = await fetch(`/plantilla/Calculo_Deuda_y_Subasta.xlsx?v=${TEMPLATE_VERSION}`, { cache: "no-store" })
@@ -262,7 +268,7 @@ export async function populateAndDownload(data: InformeInput): Promise<void> {
 
   zip.file(sheetPath, sheet.xml)
   const wbXml = await zip.file("xl/workbook.xml")!.async("string")
-  zip.file("xl/workbook.xml", forceFullCalc(wbXml))
+  zip.file("xl/workbook.xml", forceAutoCalc(wbXml))
 
   const blob = await zip.generateAsync({
     type: "blob",
