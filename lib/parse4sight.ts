@@ -85,14 +85,24 @@ function yn(token: string | undefined): "Y" | "N" | "" {
   return ""
 }
 
-/** Busca la etiqueta y devuelve el texto que la sigue (misma linea o hasta N lineas despues). */
-function after(lines: string[], label: RegExp, lookahead = 3): string {
+// Etiquetas conocidas de la pantalla: si la linea siguiente a una etiqueta VACIA es en
+// realidad OTRA etiqueta, no hay que devolverla como si fuera el valor (evita robar el
+// dato del campo contiguo cuando el propio campo viene vacio en 4Sight).
+const STOP_LABELS =
+  /Account Closure Date|Calculation Date|Interest Applicable Rate|Penalty Interest Applicable Rate|Judicial Costs|Updated Interest|Updated Penalty Interest|\bConsumer\b|First Residence|Total Updated Debt|^Capital\b|^Interest\b|Key Borrower|Fiscal Number|Loan Number|LegalID/i
+
+/** Busca la etiqueta y devuelve el texto que la sigue (misma linea o hasta N lineas despues).
+ *  Si la etiqueta esta vacia, NO cruza a una linea que sea a su vez otra etiqueta conocida
+ *  (evita robar el valor del campo siguiente cuando el propio campo viene sin dato). */
+function after(lines: string[], label: RegExp, lookahead = 1): string {
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(label)
     if (!m) continue
     const rest = lines[i].slice((m.index ?? 0) + m[0].length).trim()
     if (rest) return rest
-    return lines.slice(i + 1, i + 1 + lookahead).join(" ").trim()
+    const candidates = lines.slice(i + 1, i + 1 + lookahead)
+    if (candidates.some((l) => STOP_LABELS.test(l))) return ""
+    return candidates.join(" ").trim()
   }
   return ""
 }
