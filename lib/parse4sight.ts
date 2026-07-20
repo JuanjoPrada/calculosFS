@@ -36,6 +36,7 @@ export interface Parsed4Sight {
   // Derivado (criterio estandar): demora a cierre = UPI - UI
   penaltyADE: number | null
   properties: PropertyRow[]
+  iconFieldsUnread: boolean
   warnings: string[]
 }
 
@@ -126,7 +127,7 @@ export function parse4Sight(text: string): Parsed4Sight {
     updatedInterest: null, judicialCosts: null,
     capital: null, interest: null, updatedPenaltyInterest: null,
     otherExpenses: null, totalUpdatedDebt: null, penaltyADE: null,
-    properties: [], warnings,
+    properties: [], iconFieldsUnread: true, warnings,
   }
 
   // ---- expediente ----
@@ -236,6 +237,9 @@ export function parse4Sight(text: string): Parsed4Sight {
   }
 
   // ---- avisos de calidad ----
+  // Consumer / First Residence en 4Sight son ICONOS (check/cruz): Ctrl+C no los copia
+  // como texto, asi que se confirman a mano en el panel destacado de la app.
+  out.iconFieldsUnread = out.consumer === "" || out.firstResidence === ""
   if (!out.capital) warnings.push("No se pudo leer el Capital: rellenelo a mano.")
   if (!out.accountClosureDate) warnings.push("No se pudo leer la Account Closure Date: rellenela a mano.")
   if (!out.calculationDate) warnings.push("No se pudo leer la Calculation Date: rellenela a mano.")

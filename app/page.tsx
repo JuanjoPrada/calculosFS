@@ -26,8 +26,10 @@ export default function Page() {
   const [manualText, setManualText] = useState("")
   const [downloading, setDownloading] = useState(false)
   const [checkTotal, setCheckTotal] = useState<number | null>(null)
+  const [needsConfirm, setNeedsConfirm] = useState(false)
 
   function applyParsed(p: Parsed4Sight) {
+    setNeedsConfirm(p.iconFieldsUnread)
     const hoy = new Date().toISOString().slice(0, 10)
     setForm({
       loanNumber: p.loanNumber,
@@ -113,6 +115,11 @@ export default function Page() {
   function delFinca(i: number) {
     setForm((f) => ({ ...f, fincas: f.fincas.filter((_, j) => j !== i) }))
   }
+  function setAllFirstResidence(v: string) {
+    setForm((f) => ({ ...f, fincas: f.fincas.map((x) => ({ ...x, firstResidence: v })) }))
+  }
+  // Valor comun de "vivienda habitual" de las fincas ("" si estan mezcladas)
+  const fincasFR = form.fincas.length === 0 ? "N" : form.fincas.every((x) => x.firstResidence === form.fincas[0].firstResidence) ? form.fincas[0].firstResidence : ""
 
   // Control de cuadre contra el Total Updated Debt de 4Sight
   const cuadre = useMemo(() => {
@@ -188,6 +195,29 @@ export default function Page() {
           {warnings.length > 0 && (
             <div className="mb-4 space-y-1 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               {warnings.map((w, i) => (<p key={i}>⚠ {w}</p>))}
+            </div>
+          )}
+
+          {needsConfirm && (
+            <div className="mb-4 rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-4">
+              <p className="mb-1 text-sm font-bold text-amber-900">✋ Confirme estos 2 campos antes de descargar</p>
+              <p className="mb-3 text-xs text-amber-800">
+                En 4Sight <strong>«Consumer»</strong> y <strong>«First Residence»</strong> aparecen como iconos
+                <span className="mx-1 font-semibold text-emerald-600">✓</span>/<span className="mx-1 font-semibold text-red-600">✗</span>
+                y <strong>no se copian con Ctrl+C</strong>. Márquelos aquí según lo que vea en 4Sight:
+              </p>
+              <div className="flex flex-wrap gap-8">
+                <div>
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-amber-800">Consumidor</span>
+                  <Toggle value={form.consumer} onChange={(v) => { upd("consumer", v); }} />
+                </div>
+                <div>
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-amber-800">Vivienda habitual {form.fincas.length > 1 ? "(todas las fincas)" : ""}</span>
+                  <Toggle value={fincasFR} onChange={setAllFirstResidence} />
+                  {form.fincas.length > 1 && <span className="mt-1 block text-[11px] text-amber-700">Puede afinarla finca a finca en la tabla de abajo.</span>}
+                </div>
+              </div>
+              <button onClick={() => setNeedsConfirm(false)} className="mt-3 text-xs font-medium text-amber-700 underline hover:text-amber-900">Confirmado, ocultar aviso</button>
             </div>
           )}
 
@@ -292,6 +322,19 @@ function Field({ label, v, on, hint, wide, className = "" }: { label: string; v:
       <input className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value={v} onChange={(e) => on(e.target.value)} />
       {hint && <span className="mt-0.5 block text-[11px] leading-tight text-slate-400">{hint}</span>}
     </label>
+  )
+}
+
+// Selector segmentado Sí/No (valor "" = sin definir / mixto).
+function Toggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const btn = (v: string, label: string, active: boolean, color: string) =>
+    <button type="button" onClick={() => onChange(v)}
+      className={`px-5 py-2 text-sm font-bold transition ${active ? `${color} text-white` : "bg-white text-slate-600 hover:bg-slate-50"}`}>{label}</button>
+  return (
+    <div className="inline-flex overflow-hidden rounded-lg border border-slate-300">
+      {btn("N", "No", value === "N", "bg-slate-700")}
+      {btn("Y", "Sí", value === "Y", "bg-emerald-600")}
+    </div>
   )
 }
 
