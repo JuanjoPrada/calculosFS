@@ -193,9 +193,17 @@ function forceAutoCalc(wbXml: string): string {
   return wbXml.replace(/<\/workbook>/, '<calcPr calcMode="auto" fullCalcOnLoad="1"/></workbook>')
 }
 
+/** Elimina el VALOR CACHEADO de las celdas con formula (<v> tras </f> o <f/>, incluido
+ *  <v/> vacio). Una formula sin valor cacheado obliga a Excel a recalcularla al abrir el
+ *  fichero, aunque venga de internet (Vista Protegida) y aunque la sesion este en manual.
+ *  Es lo que evita tener que pulsar F9. */
+function stripFormulaCache(xml: string): string {
+  return xml.replace(/(<\/f>|<f[^>]*\/>)<v(?:\s*\/>|[^>]*>[^<]*<\/v>)/g, "$1")
+}
+
 // Version de la plantilla: subir este numero cada vez que se recongele la plantilla,
 // para forzar que el navegador/CDN descarguen la nueva y no una cacheada corrupta.
-const TEMPLATE_VERSION = "20260720c"
+const TEMPLATE_VERSION = "20260720d"
 
 export async function populateAndDownload(data: InformeInput): Promise<void> {
   const res = await fetch(`/plantilla/Calculo_Deuda_y_Subasta.xlsx?v=${TEMPLATE_VERSION}`, { cache: "no-store" })
@@ -266,7 +274,12 @@ export async function populateAndDownload(data: InformeInput): Promise<void> {
     msa(f.otherJudMSA, "L")
   })
 
-  zip.file(sheetPath, sheet.xml)
+  // Escribir todas las hojas SIN valor cacheado en las formulas (fuerza recalculo al abrir).
+  const worksheetNames = Object.keys(zip.files).filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n))
+  for (const wn of worksheetNames) {
+    const raw = wn === sheetPath ? sheet.xml : await zip.file(wn)!.async("string")
+    zip.file(wn, stripFormulaCache(raw))
+  }
   const wbXml = await zip.file("xl/workbook.xml")!.async("string")
   zip.file("xl/workbook.xml", forceAutoCalc(wbXml))
 
