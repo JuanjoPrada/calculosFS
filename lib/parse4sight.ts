@@ -131,8 +131,25 @@ export function parse4Sight(text: string): Parsed4Sight {
   }
 
   // ---- expediente ----
-  out.loanNumber = (flat.match(/Loan Number:?\s*([\w-]+)/i)?.[1] ?? "").trim()
-  out.legalId = (flat.match(/LegalID=?\s*(\d+)/i)?.[1] ?? "").trim()
+  // Loan Number: token con formato NNNNN-NNNN (dos grupos de digitos unidos por guion,
+  // p.ej. 20322-1671). Se busca por PATRON y NO por la etiqueta "Loan Number", porque en
+  // la pantalla Result esa etiqueta es la CABECERA de la tabla y la sigue el titulo de la
+  // columna siguiente ("Capital"). El lookaround evita confundirlo con fechas (2022-01-04)
+  // o con la parte numerica del folder (ESC-HO-01-1426).
+  const loanTok = flat.match(/(?<![\d.\-/])\d{3,6}-\d{2,6}(?![\d.\-/])/)?.[0]
+  out.loanNumber = (
+    loanTok ??
+    flat.match(/Loan Number\s*:?\s*([A-Za-z0-9-]*\d[A-Za-z0-9-]*)/i)?.[1] ??
+    ""
+  ).trim()
+  // LegalID: en la cabecera del expediente aparece como "Legal #65802"; si se copia tambien
+  // la barra de direcciones, viene como "LegalID=65802". Se prueban ambas formas.
+  out.legalId = (
+    flat.match(/LegalID=?\s*(\d+)/i)?.[1] ??
+    flat.match(/Legal\s*#\s*(\d{3,8})/i)?.[1] ??
+    flat.match(/#\s*(\d{4,8})\b/)?.[1] ??
+    ""
+  ).trim()
   out.folder = (flat.match(/\b([A-Z]{2,4}-[A-Z]{2}-\d{2}-\d{3,5})\b/)?.[1] ?? "").trim()
   const kb = after(lines, /Key Borrower/i, 1)
   out.borrower = kb.split(/Fiscal Number/i)[0].trim().slice(0, 80)
