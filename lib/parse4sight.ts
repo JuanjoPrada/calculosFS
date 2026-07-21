@@ -149,20 +149,26 @@ export function parse4Sight(text: string): Parsed4Sight {
   out.consumer = yn(after(lines, /\bConsumer\b/i, 1).slice(0, 12))
   out.firstResidence = yn(after(lines, /First Residence/i, 1).slice(0, 12))
 
-  // Caso tabla linealizada: fila de valores de Debt Calculation
-  // "2022-12-15 2026-07-17 7.500 7.500 ✗ 8,022.01 ✗ 3,000.00"
-  if (!out.accountClosureDate || out.interestRatePct == null) {
+  // Caso tabla linealizada: fila de valores de Debt Calculation. Columnas:
+  // AccountClosureDate | CalculationDate | InterestApplicableRate | PenaltyInterestApplicableRate
+  // | Consumer(icono) | Updated Interest | First Residence(icono) | Judicial Costs
+  // Los iconos NO se copian y el Penalty Rate puede venir como "-" (no numero), por lo que
+  // el numero de valores varia. Anclas FIABLES: el 1er numero = tipo de interes; el
+  // PENULTIMO = Updated Interest; el ULTIMO = Judicial Costs (independiente de que falte el
+  // penalty rate). Ej. sin penalty rate: "2022-01-04 2026-07-21 0.749 1,072.24 0.00".
+  if (!out.accountClosureDate || out.interestRatePct == null || out.updatedInterest == null) {
     for (const l of lines) {
       const dates = l.match(new RegExp(DATE_RE.source, "g"))
       if (dates && dates.length >= 2) {
         const nums = l.replace(new RegExp(DATE_RE.source, "g"), " ").match(/-?[\d.,]+\d/g) ?? []
-        if (nums.length >= 3) {
+        if (nums.length >= 2) {
           out.accountClosureDate = out.accountClosureDate || parseDateToken(dates[0])
           out.calculationDate = out.calculationDate || parseDateToken(dates[1])
           if (out.interestRatePct == null) out.interestRatePct = parseNum(nums[0])
-          if (out.penaltyRatePct == null) out.penaltyRatePct = parseNum(nums[1])
-          if (out.updatedInterest == null && nums.length >= 3) out.updatedInterest = parseNum(nums[2])
-          if (out.judicialCosts == null && nums.length >= 4) out.judicialCosts = parseNum(nums[nums.length - 1])
+          // penalty rate: solo si hay hueco entre el tipo (nums[0]) y las 2 ultimas cifras
+          if (out.penaltyRatePct == null && nums.length >= 4) out.penaltyRatePct = parseNum(nums[1])
+          if (out.updatedInterest == null) out.updatedInterest = parseNum(nums[nums.length - 2])
+          if (out.judicialCosts == null) out.judicialCosts = parseNum(nums[nums.length - 1])
           const symbols = l.match(/[✓✔√✗✘×]/g) ?? []
           if (!out.consumer && symbols[0]) out.consumer = yn(symbols[0])
           if (!out.firstResidence && symbols[1]) out.firstResidence = yn(symbols[1])

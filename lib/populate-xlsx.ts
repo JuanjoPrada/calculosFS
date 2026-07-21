@@ -203,7 +203,7 @@ function stripFormulaCache(xml: string): string {
 
 // Version de la plantilla: subir este numero cada vez que se recongele la plantilla,
 // para forzar que el navegador/CDN descarguen la nueva y no una cacheada corrupta.
-const TEMPLATE_VERSION = "20260720d"
+const TEMPLATE_VERSION = "20260721a"
 
 export async function populateAndDownload(data: InformeInput): Promise<void> {
   const res = await fetch(`/plantilla/Calculo_Deuda_y_Subasta.xlsx?v=${TEMPLATE_VERSION}`, { cache: "no-store" })
@@ -282,6 +282,16 @@ export async function populateAndDownload(data: InformeInput): Promise<void> {
   }
   const wbXml = await zip.file("xl/workbook.xml")!.async("string")
   zip.file("xl/workbook.xml", forceAutoCalc(wbXml))
+
+  // Eliminar la cadena de calculo (como hace openpyxl): sin calcChain + sin valores
+  // cacheados, Excel esta OBLIGADO a recalcular todo al abrir, incluso viniendo de internet
+  // (Vista Protegida) o con la sesion en manual. Hay que quitar tambien su referencia en
+  // [Content_Types].xml para no dejar una parte colgada (evita el aviso de reparacion).
+  if (zip.file("xl/calcChain.xml")) {
+    zip.remove("xl/calcChain.xml")
+    const ct = await zip.file("[Content_Types].xml")!.async("string")
+    zip.file("[Content_Types].xml", ct.replace(/<Override PartName="\/xl\/calcChain\.xml"[^>]*\/>/g, ""))
+  }
 
   const blob = await zip.generateAsync({
     type: "blob",
